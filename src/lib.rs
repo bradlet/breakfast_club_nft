@@ -5,7 +5,9 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_contract_standards::non_fungible_token::{NonFungibleToken, Token, TokenId};
 use near_contract_standards::non_fungible_token::metadata::{NFTContractMetadata, TokenMetadata};
-use near_sdk::{env, near_bindgen, AccountId, PanicOnDefault, BorshStorageKey};
+use near_sdk::{
+    env, near_bindgen, AccountId, PanicOnDefault, BorshStorageKey, Promise, PromiseOrValue
+};
 use near_sdk::collections::{LazyOption};
 
 #[near_bindgen]
@@ -58,9 +60,9 @@ impl Contract {
 
 }
 
-near_contract_standards::impl_non_fungible_token_core!(Contract, tokens);
-near_contract_standards::impl_non_fungible_token_approval!(Contract, tokens);
-near_contract_standards::impl_non_fungible_token_enumeration!(Contract, tokens);
+near_contract_standards::impl_non_fungible_token_core!(Contract, token_manager);
+near_contract_standards::impl_non_fungible_token_approval!(Contract, token_manager);
+near_contract_standards::impl_non_fungible_token_enumeration!(Contract, token_manager);
 
 
 // Note: Just copied base tests from tutorial so I can have an easier time playing around
@@ -119,6 +121,11 @@ mod tests {
             accounts(1).into(),
             sample_contract_metadata()
         );
+
+        // Note to self on Rust: unit tests in the same module, or in a child module, have full
+        // access to private struct members. So the following doesn't cause a Panic!
+        // let test = contract.token_manager.owner_id;
+
         testing_env!(context.is_view(true).build());
         assert_eq!(contract.nft_token("1".to_string()), None);
     }
