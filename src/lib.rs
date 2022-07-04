@@ -72,8 +72,12 @@ mod tests {
     use near_contract_standards::non_fungible_token::metadata::NFT_METADATA_SPEC;
     use near_sdk::test_utils::{accounts, VMContextBuilder};
     use near_sdk::testing_env;
-    use near_sdk::MockedBlockchain;
+    // use near_sdk::MockedBlockchain;
     use super::*;
+
+    // Just copied this value from the tutorial found:
+    // https://github.com/near-examples/NFT/blob/master/nft/src/lib.rs
+    const MINT_STORAGE_COST: u128 = 5870000000000000000000;
 
     fn get_context(predecessor_account_id: AccountId) -> VMContextBuilder {
         let mut builder = VMContextBuilder::new();
@@ -115,7 +119,7 @@ mod tests {
 
     #[test]
     fn test_new() {
-        let mut context = get_context(accounts(1));
+        let mut context = get_context(accounts(0));
         testing_env!(context.build());
         let contract = Contract::new(
             accounts(1).into(),
@@ -128,5 +132,31 @@ mod tests {
 
         testing_env!(context.is_view(true).build());
         assert_eq!(contract.nft_token("1".to_string()), None);
+    }
+
+    #[test]
+    fn test_nft_mint() {
+        let mut context = get_context(accounts(1));
+        testing_env!(context.build());
+        let mut contract = Contract::new(
+            accounts(1).into(),
+            sample_contract_metadata()
+        );
+
+        testing_env!(context
+            .storage_usage(env::storage_usage())
+            .attached_deposit(MINT_STORAGE_COST)
+            .predecessor_account_id(accounts(0))
+            .build());
+
+        let token = contract.nft_mint(
+            String::from("1"),
+            accounts(2).into(),
+            sample_token_metadata()
+        );
+
+        assert_ne!(contract.nft_token("1".to_string()), None);
+        assert_eq!(token.owner_id, accounts(2));
+        assert_eq!(token.metadata.unwrap(), sample_token_metadata())
     }
 }
