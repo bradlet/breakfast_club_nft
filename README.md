@@ -1,6 +1,10 @@
 # breakfast_club_nft
 Home for all back-end implementations relevant to the Breakfast Club NFT project family.
 
+## Tutorial Source
+Lots of the pieces of this file, at least preliminarily, are pulled from NEAR docs tutorials.
+https://docs.near.org/docs/tutorials/contracts/nfts/introduction
+
 # Licensing
 This project is open-sourced under the Apache 2.0 License.
 See `LICENSE` for more details...
