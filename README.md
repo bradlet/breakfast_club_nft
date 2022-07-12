@@ -1,9 +1,9 @@
 # breakfast_club_nft
 Home for all back-end implementations relevant to the Breakfast Club NFT project family.
 
-## Tutorial Source
-Lots of the pieces of this file, at least preliminarily, are pulled from NEAR docs tutorials.
-https://docs.near.org/docs/tutorials/contracts/nfts/introduction
+This project is being developed for Solana, and is an exploration into the concept of
+making a blockchain game entirely live on the blockchain, with the UI only acting as
+a wrapper for smart contract interactions.
 
 # Licensing
 This project is open-sourced under the Apache 2.0 License.

@@ -2,161 +2,103 @@
 /// Main "entrypoint" for the Breakfast Club NFT contract.
 /// @author bradlet <bradlet2@pdx.edu>
 
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_contract_standards::non_fungible_token::{NonFungibleToken, Token, TokenId};
-use near_contract_standards::non_fungible_token::metadata::{NFTContractMetadata, TokenMetadata};
-use near_sdk::{
-    env, near_bindgen, AccountId, PanicOnDefault, BorshStorageKey, Promise, PromiseOrValue
+use borsh::{BorshDeserialize, BorshSerialize};
+use solana_program::{
+    account_info::{next_account_info, AccountInfo},
+    entrypoint,
+    entrypoint::ProgramResult,
+    msg,
+    program_error::ProgramError,
+    pubkey::Pubkey,
 };
-use near_sdk::collections::{LazyOption};
 
-#[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
-pub struct Contract {
-    token_manager: NonFungibleToken,
-    metadata: LazyOption<NFTContractMetadata>,
+/// Define the type of state stored in accounts
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub struct GreetingAccount {
+    /// number of greetings
+    pub counter: u32,
 }
 
-#[derive(BorshSerialize, BorshStorageKey)]
-enum StorageKey {
-    NonFungibleToken,
-    Metadata,
-    TokenMetadata,
-    Enumeration,
-    Approval,
-}
+// Declare and export the program's entrypoint
+entrypoint!(process_instruction);
 
-#[near_bindgen]
-impl Contract {
+// Program entrypoint's implementation
+pub fn process_instruction(
+    program_id: &Pubkey, // Public key of the account the hello world program was loaded into
+    accounts: &[AccountInfo], // The account to say hello to
+    _instruction_data: &[u8], // Ignored, all helloworld instructions are hellos
+) -> ProgramResult {
+    msg!("Hello World Rust program entrypoint");
 
-    /// Initialize the contract; can only be called once.
-    #[init]
-    pub fn new(owner_id: AccountId, metadata: NFTContractMetadata) -> Self {
-        assert!(!env::state_exists(), "Contract has already been initialized.");
-        metadata.assert_valid();
-        Self {
-            token_manager: NonFungibleToken::new(
-                StorageKey::NonFungibleToken,
-                owner_id,
-                Some(StorageKey::TokenMetadata),
-                Some(StorageKey::Enumeration),
-                Some(StorageKey::Approval)
-            ),
-            metadata: LazyOption::new(StorageKey::Metadata, Some(&metadata))
-        }
+    // Iterating accounts is safer than indexing
+    let accounts_iter = &mut accounts.iter();
+
+    // Get the account to say hello to
+    let account = next_account_info(accounts_iter)?;
+
+    // The account must be owned by the program in order to modify its data
+    if account.owner != program_id {
+        msg!("Greeted account does not have the correct program id");
+        return Err(ProgramError::IncorrectProgramId);
     }
 
-    /// Mint a new token of id `token_id` for new token owner `receiver_id`
-    #[payable]
-    pub fn nft_mint(
-        &mut self,
-        token_id: TokenId,
-        receiver_id: AccountId,
-        token_meta: TokenMetadata
-    ) -> Token {
-        self.token_manager
-            .internal_mint(token_id, receiver_id, Some(token_meta))
-    }
+    // Increment and store the number of times the account has been greeted
+    let mut greeting_account = GreetingAccount::try_from_slice(&account.data.borrow())?;
+    greeting_account.counter += 1;
+    greeting_account.serialize(&mut &mut account.data.borrow_mut()[..])?;
 
+    msg!("Greeted {} time(s)!", greeting_account.counter);
+
+    Ok(())
 }
 
-near_contract_standards::impl_non_fungible_token_core!(Contract, token_manager);
-near_contract_standards::impl_non_fungible_token_approval!(Contract, token_manager);
-near_contract_standards::impl_non_fungible_token_enumeration!(Contract, token_manager);
-
-
-// Note: Just copied base tests from tutorial so I can have an easier time playing around
-// with the contract in an IDE.
-#[cfg(all(test, not(target_arch = "wasm32")))]
-mod tests {
-    use near_contract_standards::non_fungible_token::metadata::NFT_METADATA_SPEC;
-    use near_sdk::test_utils::{accounts, VMContextBuilder};
-    use near_sdk::testing_env;
-    // use near_sdk::MockedBlockchain;
+// Sanity tests
+#[cfg(test)]
+mod test {
     use super::*;
-
-    // Just copied this value from the tutorial found:
-    // https://github.com/near-examples/NFT/blob/master/nft/src/lib.rs
-    const MINT_STORAGE_COST: u128 = 5870000000000000000000;
-
-    fn get_context(predecessor_account_id: AccountId) -> VMContextBuilder {
-        let mut builder = VMContextBuilder::new();
-        builder
-            .current_account_id(accounts(0))
-            .signer_account_id(predecessor_account_id.clone())
-            .predecessor_account_id(predecessor_account_id);
-        builder
-    }
-
-    fn sample_contract_metadata() -> NFTContractMetadata {
-        NFTContractMetadata {
-            spec: NFT_METADATA_SPEC.to_string(),
-            name: "Breakfast Club NFT".to_string(),
-            symbol: "BKFST".to_string(),
-            icon: None,
-            base_uri: None,
-            reference: None,
-            reference_hash: None
-        }
-    }
-
-    fn sample_token_metadata() -> TokenMetadata {
-        TokenMetadata {
-            title: Some("Breakfast Sandwich with Egg".into()),
-            description: Some("A delicious meal".into()),
-            media: None,
-            media_hash: None,
-            copies: Some(1u64),
-            issued_at: None,
-            expires_at: None,
-            starts_at: None,
-            updated_at: None,
-            extra: None,
-            reference: None,
-            reference_hash: None,
-        }
-    }
+    use solana_program::clock::Epoch;
+    use std::mem;
 
     #[test]
-    fn test_new() {
-        let mut context = get_context(accounts(0));
-        testing_env!(context.build());
-        let contract = Contract::new(
-            accounts(1).into(),
-            sample_contract_metadata()
+    fn test_sanity() {
+        let program_id = Pubkey::default();
+        let key = Pubkey::default();
+        let mut lamports = 0;
+        let mut data = vec![0; mem::size_of::<u32>()];
+        let owner = Pubkey::default();
+        let account = AccountInfo::new(
+            &key,
+            false,
+            true,
+            &mut lamports,
+            &mut data,
+            &owner,
+            false,
+            Epoch::default(),
         );
+        let instruction_data: Vec<u8> = Vec::new();
 
-        // Note to self on Rust: unit tests in the same module, or in a child module, have full
-        // access to private struct members. So the following doesn't cause a Panic!
-        // let test = contract.token_manager.owner_id;
+        let accounts = vec![account];
 
-        testing_env!(context.is_view(true).build());
-        assert_eq!(contract.nft_token("1".to_string()), None);
-    }
-
-    #[test]
-    fn test_nft_mint() {
-        let mut context = get_context(accounts(1));
-        testing_env!(context.build());
-        let mut contract = Contract::new(
-            accounts(1).into(),
-            sample_contract_metadata()
+        assert_eq!(
+            GreetingAccount::try_from_slice(&accounts[0].data.borrow())
+                .unwrap()
+                .counter,
+            0
         );
-
-        testing_env!(context
-            .storage_usage(env::storage_usage())
-            .attached_deposit(MINT_STORAGE_COST)
-            .predecessor_account_id(accounts(0))
-            .build());
-
-        let token = contract.nft_mint(
-            String::from("1"),
-            accounts(2).into(),
-            sample_token_metadata()
+        process_instruction(&program_id, &accounts, &instruction_data).unwrap();
+        assert_eq!(
+            GreetingAccount::try_from_slice(&accounts[0].data.borrow())
+                .unwrap()
+                .counter,
+            1
         );
-
-        assert_ne!(contract.nft_token("1".to_string()), None);
-        assert_eq!(token.owner_id, accounts(2));
-        assert_eq!(token.metadata.unwrap(), sample_token_metadata())
+        process_instruction(&program_id, &accounts, &instruction_data).unwrap();
+        assert_eq!(
+            GreetingAccount::try_from_slice(&accounts[0].data.borrow())
+                .unwrap()
+                .counter,
+            2
+        );
     }
 }
